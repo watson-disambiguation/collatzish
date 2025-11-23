@@ -1,24 +1,125 @@
-use std::{collections::HashMap};
+use std::{collections::HashMap, io};
 
-fn main() {
-    let mut calculator = CollatzishMemoized::new(3, 5);
-    let limit = 100000;
-    calculator.add_all_paths(limit);
+enum Command {
+    Loop,
+    Path(u64),
+    Add(u64),
+    Quit,
+    Counts,
+}
+
+fn scan_commands() -> Option<Command> {
+    let mut buffer = String::new();
+    let stdin = io::stdin();
+    if let Err(_) = stdin.read_line(&mut buffer) {
+        return None;
+    }
+    let cleaned_input = buffer.strip_suffix("\n")?;
+    if cleaned_input.eq("l") {
+        Some(Command::Loop)
+    }
+    else if cleaned_input.eq("q") {
+        Some(Command::Quit)
+    }
+    else if cleaned_input.eq("c") {
+        Some(Command::Counts)
+    }
+    else if cleaned_input.starts_with("p") {
+        let value: u64 = match cleaned_input.strip_prefix("p")?.parse() {
+            Ok(n) => n,
+            Err(_) => { return None; },
+        };
+        Some(Command::Path(value))
+    }
+    else if cleaned_input.starts_with("a") {
+        let value: u64 = match cleaned_input.strip_prefix("a")?.parse() {
+            Ok(n) => n,
+            Err(_) => { return None; },
+        };
+        Some(Command::Add(value))
+    }
+    else {
+        None
+    }
+}
+
+fn scan_input_unsigned_integer(label: &str, default_value: Option<u64>) -> u64 {
+    print!("Input {}.",label);
+    if let Some(default) = default_value {
+        print!(" Default value is {}.\n",default);
+    }
+    let mut buffer = String::new();
+    let stdin = io::stdin();
+    loop {
+        if let Err(_) = stdin.read_line(&mut buffer) {
+            println!("Error reading input, please try again.");
+            continue;
+        }
+        let number_text = match buffer.strip_suffix("\n") {
+            Some(s) => s,
+            None => {
+                println!("Error reading input, please try again.");
+                continue;
+            },
+        };
+        // empty string, so use default value
+        if let Some(default) = default_value {
+            if number_text.is_empty() {
+                return default;
+            }
+        }
+        match number_text.parse::<u64>() {
+            Ok(n) => return n,
+            Err(_) => println!("Unable to parse input, please try again."),
+        }
+    }
+    
+}
+
+fn console_loop(calculator: &mut CollatzishMemoized) {
+    println!("Input commands:");
+    loop {
+        if let Some(command) = scan_commands() {
+            match command {
+                Command::Counts => counts(calculator),
+                Command::Quit => return,
+                _ => println!("Command not implemented"),
+            };
+        }
+        else {
+            println!("Invalid Command, please try again");
+        }
+    }
+}
+
+fn counts(calculator: &mut CollatzishMemoized) {
     let mut counts = HashMap::new();
     for final_loop in calculator.final_loop_map.keys() {
         counts.insert(final_loop.clone(), 0u64);
-        println!("{:?}",calculator.get_path(*final_loop));
     }
     let filtered_iter = calculator.number_path_map
         .iter()
-        .filter(|(k,v)| **k <= limit)
         .map(|(k,v)| v.clone().final_loop);
+    let total = calculator.number_path_map.iter().count();
     for final_loop in filtered_iter {
         if let Some(count) = counts.get(&final_loop) {
             counts.insert(final_loop, count+1);
         }
     }
-    println!("{:#?}",counts);
+    for (final_loop,count) in counts.iter() {
+        print!("{} : {}/{} ",final_loop.clone(),count.clone(),total);
+    }
+    print!("\n");
+}
+
+fn main() {
+    let mult = scan_input_unsigned_integer("the multiplicative factor", Some(3));
+    let add = scan_input_unsigned_integer("the additive factor", Some(1));
+    let limit = scan_input_unsigned_integer("the maximum starting number", Some(10000));
+    let mut calculator = CollatzishMemoized::new(mult, add);
+    calculator.add_all_paths(limit);
+    console_loop(&mut calculator);
+    
 }
 
 #[derive(Debug, Clone)]
